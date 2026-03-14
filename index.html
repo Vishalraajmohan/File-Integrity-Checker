@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>File Integrity Checker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body>
+
+<!-- ── Background ─────────────────────────────────────────────── -->
+<div class="bg-canvas">
+  <div class="bg-grid"></div>
+  <div class="bg-orb1"></div>
+  <div class="bg-orb2"></div>
+  <div class="bg-scan"></div>
+</div>
+
+<!-- ── Navigation ─────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-logo">
+    <div class="logo-icon">🔐</div>
+    FILE<span>GUARD</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-pill">v2.0</span>
+    <span class="nav-status">
+      <span class="status-dot"></span>ONLINE
+    </span>
+  </div>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="hero-eyebrow">Cryptographic Hash Engine</div>
+  <h1>
+    <span class="line1">File Integrity</span>
+    <span class="line2">Checker</span>
+  </h1>
+  <p class="hero-sub">
+    Generate cryptographic hashes, verify authenticity, and detect
+    file tampering — powered by Python and Flask.
+  </p>
+  <div class="algo-strip">
+    <span class="algo-strip-badge">MD5</span>
+    <span class="algo-strip-badge">SHA-256</span>
+    <span class="algo-strip-badge">SHA-512</span>
+    <span class="algo-strip-badge">SHA3-256</span>
+  </div>
+</div>
+
+<!-- ── Main ───────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Stats -->
+  <div class="stats-strip" id="statsStrip">
+    <div class="stat-box">
+      <div class="stat-key">Files Processed</div>
+      <div class="stat-val" id="sFiles">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-key">Hashes Generated</div>
+      <div class="stat-val" id="sHashes">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-key">Last File Size</div>
+      <div class="stat-val" id="sSize" style="font-size:1.2rem;padding-top:6px">—</div>
+    </div>
+  </div>
+
+  <!-- Tab Nav -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('gen', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Generate
+    </button>
+    <button class="tab-btn" onclick="switchTab('vfy', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Verify
+    </button>
+    <button class="tab-btn" onclick="switchTab('cmp', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6"  y1="20" x2="6"  y2="14"/>
+      </svg>
+      Compare
+    </button>
+    <button class="tab-btn" onclick="switchTab('hist', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+      History
+    </button>
+  </div>
+
+  <!-- ══ GENERATE ══════════════════════════════════════════════ -->
+  <div id="tab-gen" class="tab-panel active">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📁</div>
+        <span class="card-label">Target File</span>
+      </div>
+      <div class="drop-zone" id="genDrop">
+        <input type="file" id="genInput" onchange="handleFileSelect('gen', this.files[0])"/>
+        <div class="drop-zone-inner">
+          <div class="drop-graphic">📂</div>
+          <div class="drop-title">Drop file here or click to browse</div>
+          <div class="drop-hint">Any file type · processed server-side via Flask</div>
+          <div class="file-badge" id="genBadge"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--violet-dim);border-color:rgba(124,92,252,0.25)">⚙</div>
+        <span class="card-label">Algorithms</span>
+      </div>
+      <div class="algo-selector" id="algoSelector">
+        <div class="algo-chip on" data-algo="MD5"      onclick="toggleChip(this)"><span>MD5</span></div>
+        <div class="algo-chip on" data-algo="SHA-256"  onclick="toggleChip(this)"><span>SHA-256</span></div>
+        <div class="algo-chip"   data-algo="SHA-512"  onclick="toggleChip(this)"><span>SHA-512</span></div>
+        <div class="algo-chip"   data-algo="SHA3-256" onclick="toggleChip(this)"><span>SHA3-256</span></div>
+      </div>
+    </div>
+
+    <div class="prog-wrap" id="genProg">
+      <div class="prog-bar"><div class="prog-fill" id="genFill"></div></div>
+      <div class="prog-text">
+        <span id="genProgLabel">Computing…</span>
+        <span id="genProgPct">0%</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-cyan" onclick="runGenerate()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Compute Hashes
+      </button>
+    </div>
+
+    <div id="genOut" style="margin-top:1.5rem"></div>
+  </div>
+
+  <!-- ══ VERIFY ════════════════════════════════════════════════ -->
+  <div id="tab-vfy" class="tab-panel">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🔍</div>
+        <span class="card-label">File to Verify</span>
+      </div>
+      <div class="drop-zone">
+        <input type="file" id="vfyInput" onchange="handleFileSelect('vfy', this.files[0])"/>
+        <div class="drop-zone-inner">
+          <div class="drop-graphic">🔍</div>
+          <div class="drop-title">Select the file to verify</div>
+          <div class="drop-hint">Will be hashed and compared to your expected value</div>
+          <div class="file-badge" id="vfyBadge"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--violet-dim);border-color:rgba(124,92,252,0.25)">⚙</div>
+        <span class="card-label">Algorithm</span>
+      </div>
+      <div class="radio-algo-grid">
+        <label class="radio-algo"><input type="radio" name="vAlgo" value="MD5"/><span class="radio-algo-label">MD5</span></label>
+        <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA-256" checked/><span class="radio-algo-label">SHA-256</span></label>
+        <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA-512"/><span class="radio-algo-label">SHA-512</span></label>
+        <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA3-256"/><span class="radio-algo-label">SHA3-256</span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(255,184,0,0.1);border-color:rgba(255,184,0,0.2)">📋</div>
+        <span class="card-label">Expected Hash</span>
+      </div>
+      <input class="text-input" id="expectedInput"
+             placeholder="Paste the known / trusted hash digest here…"
+             autocomplete="off" spellcheck="false"/>
+      <div style="font-size:0.75rem;color:var(--text3);margin-top:6px">
+        Get this from the official source (software website, security bulletin, etc.)
+      </div>
+    </div>
+
+    <div id="vfyBanner"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-cyan" onclick="runVerify()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Verify Integrity
+      </button>
+    </div>
+
+    <div id="vfyComputedOut" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- ══ COMPARE ═══════════════════════════════════════════════ -->
+  <div id="tab-cmp" class="tab-panel">
+
+    <div class="compare-grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📄</div>
+          <span class="card-label">File A</span>
+        </div>
+        <div class="drop-zone" style="padding:1.5rem 1rem">
+          <input type="file" id="cmpA" onchange="handleFileSelect('cmpA', this.files[0])"/>
+          <div class="drop-zone-inner">
+            <div class="drop-graphic" style="width:38px;height:38px;font-size:16px;margin-bottom:8px">📄</div>
+            <div class="drop-title" style="font-size:0.88rem">Select File A</div>
+            <div class="file-badge" id="cmpABadge"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📄</div>
+          <span class="card-label">File B</span>
+        </div>
+        <div class="drop-zone" style="padding:1.5rem 1rem">
+          <input type="file" id="cmpB" onchange="handleFileSelect('cmpB', this.files[0])"/>
+          <div class="drop-zone-inner">
+            <div class="drop-graphic" style="width:38px;height:38px;font-size:16px;margin-bottom:8px">📄</div>
+            <div class="drop-title" style="font-size:0.88rem">Select File B</div>
+            <div class="file-badge" id="cmpBBadge"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-violet" onclick="runCompare()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6"  y1="20" x2="6"  y2="14"/>
+        </svg>
+        Compare Files
+      </button>
+    </div>
+
+    <div id="cmpOut" style="margin-top:1.5rem"></div>
+  </div>
+
+  <!-- ══ HISTORY ═══════════════════════════════════════════════ -->
+  <div id="tab-hist" class="tab-panel">
+    <div class="history-controls">
+      <div class="history-title">Session History</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" style="padding:8px 16px;font-size:0.8rem"
+                onclick="exportHistory()">Export JSON</button>
+        <button class="btn btn-ghost"
+                style="padding:8px 16px;font-size:0.8rem;color:var(--red);border-color:rgba(255,69,102,0.3)"
+                onclick="clearHistory()">Clear All</button>
+      </div>
+    </div>
+    <div id="histList">
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>No files processed yet.<br/>Generate some hashes to see them here.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
