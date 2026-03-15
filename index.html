@@ -1,15 +1,599 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>File Integrity Checker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>File Integrity Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Root ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #060810;
+  --bg2:       #0c0f1a;
+  --bg3:       #111525;
+  --bg4:       #161b2e;
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(255,255,255,0.11);
+  --border3:   rgba(255,255,255,0.18);
+  --cyan:      #00e5ff;
+  --cyan-dim:  rgba(0,229,255,0.12);
+  --cyan-glow: rgba(0,229,255,0.25);
+  --violet:    #7c5cfc;
+  --violet-dim:rgba(124,92,252,0.12);
+  --green:     #00f5a0;
+  --green-dim: rgba(0,245,160,0.1);
+  --red:       #ff4566;
+  --red-dim:   rgba(255,69,102,0.1);
+  --amber:     #ffb800;
+  --text:      #dde3f5;
+  --text2:     #8892b0;
+  --text3:     #4a5578;
+  --mono:      'JetBrains Mono', monospace;
+  --head:      'Rajdhani', sans-serif;
+  --body:      'Outfit', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* ── Animated background ──────────────────────────────────────────── */
+.bg-canvas {
+  position: fixed; inset: 0; z-index: 0;
+  overflow: hidden; pointer-events: none;
+}
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.bg-orb1 {
+  position: absolute;
+  top: -20%; left: -15%;
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(124,92,252,0.1) 0%, transparent 65%);
+  animation: orb-drift 14s ease-in-out infinite alternate;
+}
+.bg-orb2 {
+  position: absolute;
+  bottom: -20%; right: -15%;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(0,229,255,0.07) 0%, transparent 65%);
+  animation: orb-drift 18s ease-in-out infinite alternate-reverse;
+}
+@keyframes orb-drift {
+  from { transform: translate(0,0) scale(1); }
+  to   { transform: translate(40px, 30px) scale(1.08); }
+}
+
+/* Scanline effect */
+.bg-scan {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 200;
+  height: 58px;
+  background: rgba(6,8,16,0.82);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--head);
+  font-size: 1.2rem; font-weight: 700;
+  letter-spacing: 1px;
+}
+.logo-icon {
+  width: 30px; height: 30px;
+  border: 1.5px solid var(--cyan);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 0 12px var(--cyan-glow), inset 0 0 8px rgba(0,229,255,0.08);
+  animation: icon-pulse 3s ease-in-out infinite;
+}
+@keyframes icon-pulse {
+  0%,100%{ box-shadow: 0 0 12px var(--cyan-glow), inset 0 0 8px rgba(0,229,255,0.08); }
+  50%    { box-shadow: 0 0 24px var(--cyan-glow), inset 0 0 14px rgba(0,229,255,0.15); }
+}
+.nav-logo span { color: var(--cyan); }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.nav-pill {
+  font-family: var(--mono); font-size: 0.65rem;
+  padding: 4px 12px; border-radius: 20px;
+  border: 1px solid var(--border2);
+  color: var(--text2); background: var(--bg3);
+  letter-spacing: 1px;
+}
+.nav-status {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 0.65rem;
+  color: var(--green);
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Hero ─────────────────────────────────────────────────────────── */
+.hero {
+  position: relative; z-index: 1;
+  text-align: center;
+  padding: 4rem 1.5rem 3rem;
+}
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 0.68rem;
+  color: var(--cyan); letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: ''; display: inline-block;
+  width: 28px; height: 1px; background: var(--cyan); opacity: 0.4;
+}
+.hero h1 {
+  font-family: var(--head);
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.hero h1 .line1 { color: var(--text); display: block; }
+.hero h1 .line2 {
+  display: block;
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-sub {
+  color: var(--text2); font-size: 0.95rem; line-height: 1.7;
+  max-width: 480px; margin: 0 auto 2rem;
+  font-weight: 300;
+}
+
+/* Algo badges strip */
+.algo-strip {
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 2rem;
+}
+.algo-strip-badge {
+  font-family: var(--mono); font-size: 0.68rem;
+  padding: 4px 12px; border-radius: 4px;
+  border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text3);
+  letter-spacing: 1px;
+}
+
+/* ── Main Layout ──────────────────────────────────────────────────── */
+.main { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+/* ── Tabs ─────────────────────────────────────────────────────────── */
+.tab-nav {
+  display: flex; gap: 2px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 4px;
+  margin-bottom: 1.5rem;
+}
+.tab-btn {
+  flex: 1; padding: 11px 10px;
+  font-family: var(--body); font-size: 0.88rem; font-weight: 500;
+  color: var(--text3); background: transparent;
+  border: none; border-radius: 9px; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.tab-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.tab-btn:hover { color: var(--text); background: var(--bg3); }
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--cyan-dim), var(--violet-dim));
+  color: var(--cyan);
+  border: 1px solid rgba(0,229,255,0.2);
+  font-weight: 600;
+}
+
+.tab-panel { display: none; animation: slide-up 0.25s ease; }
+.tab-panel.active { display: block; }
+@keyframes slide-up { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+/* ── Cards ────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 12px;
+  transition: border-color 0.25s;
+  position: relative; overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,0.15), transparent);
+}
+.card:hover { border-color: var(--border2); }
+.card-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 1rem;
+}
+.card-label {
+  font-family: var(--mono); font-size: 0.65rem;
+  color: var(--text3); letter-spacing: 2.5px; text-transform: uppercase;
+}
+.card-icon {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--cyan-dim); border: 1px solid rgba(0,229,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+
+/* ── Drop Zone ────────────────────────────────────────────────────── */
+.drop-zone {
+  position: relative;
+  border: 1.5px dashed var(--border2);
+  border-radius: 12px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s;
+  background: rgba(255,255,255,0.01);
+  overflow: hidden;
+}
+.drop-zone::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, var(--cyan-dim) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.drop-zone:hover::after, .drop-zone.over::after { opacity: 1; }
+.drop-zone:hover, .drop-zone.over {
+  border-color: var(--cyan);
+  box-shadow: 0 0 30px rgba(0,229,255,0.08);
+}
+.drop-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0;
+  cursor: pointer; width: 100%; height: 100%; z-index: 2;
+}
+.drop-zone-inner { position: relative; z-index: 1; pointer-events: none; }
+.drop-graphic {
+  width: 52px; height: 52px; margin: 0 auto 1rem;
+  border: 1.5px solid var(--border2);
+  border-radius: 12px;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  transition: all 0.25s;
+}
+.drop-zone:hover .drop-graphic { border-color: var(--cyan); box-shadow: 0 0 16px var(--cyan-glow); }
+.drop-title { font-family: var(--head); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px; }
+.drop-hint  { font-size: 0.8rem; color: var(--text3); }
+
+.file-badge {
+  display: none;
+  margin-top: 12px;
+  padding: 8px 14px;
+  background: var(--green-dim);
+  border: 1px solid rgba(0,245,160,0.2);
+  border-radius: 8px;
+  font-family: var(--mono); font-size: 0.75rem;
+  color: var(--green);
+  word-break: break-all; line-height: 1.5;
+  text-align: left;
+}
+
+/* ── Algorithm Selector ───────────────────────────────────────────── */
+.algo-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+.algo-chip {
+  padding: 7px 16px; border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text2);
+  font-family: var(--mono); font-size: 0.75rem;
+  cursor: pointer; transition: all 0.15s;
+  user-select: none; letter-spacing: 0.5px;
+  position: relative; overflow: hidden;
+}
+.algo-chip::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--cyan-dim), var(--violet-dim));
+  opacity: 0; transition: opacity 0.15s;
+}
+.algo-chip:hover { border-color: var(--border3); color: var(--text); }
+.algo-chip.on {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,229,255,0.15);
+}
+.algo-chip.on::before { opacity: 1; }
+.algo-chip span { position: relative; z-index: 1; }
+
+/* ── Progress ─────────────────────────────────────────────────────── */
+.prog-wrap { margin: 1rem 0; display: none; }
+.prog-bar {
+  height: 2px; background: var(--bg4); border-radius: 1px; overflow: visible; position: relative;
+}
+.prog-fill {
+  height: 2px; border-radius: 1px; width: 0%;
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px var(--cyan), 0 0 24px rgba(0,229,255,0.3);
+  position: relative;
+}
+.prog-fill::after {
+  content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+}
+.prog-text {
+  font-family: var(--mono); font-size: 0.68rem;
+  color: var(--text3); margin-top: 8px;
+  display: flex; justify-content: space-between;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 24px; border-radius: 8px;
+  font-family: var(--body); font-size: 0.88rem; font-weight: 600;
+  border: none; cursor: pointer; transition: all 0.2s;
+  letter-spacing: 0.3px; position: relative; overflow: hidden;
+}
+.btn-cyan {
+  background: var(--cyan); color: var(--bg);
+  box-shadow: 0 0 20px rgba(0,229,255,0.3);
+}
+.btn-cyan:hover { box-shadow: 0 0 36px rgba(0,229,255,0.5); transform: translateY(-1px); }
+.btn-cyan:active { transform: scale(0.98); }
+.btn-ghost {
+  background: var(--bg3); color: var(--text2);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+.btn-violet {
+  background: var(--violet); color: #fff;
+  box-shadow: 0 0 20px rgba(124,92,252,0.3);
+}
+.btn-violet:hover { box-shadow: 0 0 36px rgba(124,92,252,0.5); transform: translateY(-1px); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
+
+/* ── Results ──────────────────────────────────────────────────────── */
+.file-meta-bar {
+  display: flex; gap: 2rem; flex-wrap: wrap;
+  padding: 12px 16px; border-radius: 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 0.72rem;
+  margin-bottom: 12px;
+}
+.file-meta-bar .meta-item { display: flex; flex-direction: column; gap: 3px; }
+.meta-key { color: var(--text3); letter-spacing: 1px; text-transform: uppercase; font-size: 0.6rem; }
+.meta-val { color: var(--text); font-size: 0.78rem; }
+
+.hash-list { display: flex; flex-direction: column; gap: 10px; }
+.hash-entry {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 16px;
+  transition: border-color 0.2s;
+}
+.hash-entry:hover { border-color: var(--border2); }
+.hash-entry-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.hash-algo-tag {
+  font-family: var(--mono); font-size: 0.7rem;
+  padding: 3px 10px; border-radius: 4px;
+  background: var(--violet-dim); border: 1px solid rgba(124,92,252,0.25);
+  color: #a78bfa; letter-spacing: 0.5px;
+}
+.hash-len { font-family: var(--mono); font-size: 0.65rem; color: var(--text3); }
+.hash-value {
+  font-family: var(--mono); font-size: 0.75rem;
+  color: var(--cyan); word-break: break-all; line-height: 1.7;
+  letter-spacing: 0.3px;
+}
+.hash-actions { display: flex; gap: 6px; margin-top: 10px; }
+.mini-btn {
+  padding: 4px 12px; border-radius: 5px; font-size: 0.72rem;
+  border: 1px solid var(--border2); background: var(--bg4);
+  color: var(--text2); cursor: pointer; transition: all 0.15s;
+  font-family: var(--body);
+}
+.mini-btn:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+.mini-btn.ok { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+/* ── Verify banner ────────────────────────────────────────────────── */
+.verify-banner {
+  display: flex; align-items: center; gap: 16px;
+  padding: 1.2rem 1.5rem; border-radius: 12px;
+  margin-bottom: 1rem; animation: slide-up 0.3s ease;
+}
+.verify-banner.success {
+  background: var(--green-dim);
+  border: 1px solid rgba(0,245,160,0.25);
+}
+.verify-banner.fail {
+  background: var(--red-dim);
+  border: 1px solid rgba(255,69,102,0.25);
+}
+.banner-icon-wrap {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; flex-shrink: 0;
+}
+.success .banner-icon-wrap { background: rgba(0,245,160,0.15); }
+.fail    .banner-icon-wrap { background: rgba(255,69,102,0.15); }
+.banner-text h3 { font-family: var(--head); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.5px; }
+.success .banner-text h3 { color: var(--green); }
+.fail    .banner-text h3 { color: var(--red); }
+.banner-text p { font-size: 0.82rem; color: var(--text2); margin-top: 3px; line-height: 1.5; }
+
+/* ── Input ────────────────────────────────────────────────────────── */
+.field-wrap { margin-bottom: 12px; }
+.field-label {
+  font-family: var(--mono); font-size: 0.65rem;
+  color: var(--text3); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 7px; display: block;
+}
+.text-input {
+  width: 100%; padding: 11px 14px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text);
+  font-family: var(--mono); font-size: 0.8rem;
+  outline: none; transition: all 0.2s;
+}
+.text-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,229,255,0.08);
+}
+.text-input::placeholder { color: var(--text3); }
+
+/* ── Radio algo for verify ────────────────────────────────────────── */
+.radio-algo-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.radio-algo input { display: none; }
+.radio-algo-label {
+  padding: 6px 14px; border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text3);
+  font-family: var(--mono); font-size: 0.72rem;
+  cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px;
+}
+.radio-algo input:checked + .radio-algo-label {
+  border-color: var(--violet); color: #a78bfa;
+  background: var(--violet-dim);
+  box-shadow: 0 0 10px rgba(124,92,252,0.15);
+}
+
+/* ── Compare ──────────────────────────────────────────────────────── */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width: 600px){ .compare-grid { grid-template-columns: 1fr; } }
+
+.compare-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.compare-table thead th {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px;
+  padding: 0 8px 10px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.compare-table tbody td {
+  padding: 12px 8px; border-bottom: 1px solid var(--border);
+  font-size: 0.78rem; vertical-align: middle;
+}
+.compare-table tbody tr:last-child td { border-bottom: none; }
+.match-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px; font-size: 0.72rem;
+  font-family: var(--mono); font-weight: 500;
+}
+.match-badge.yes { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,245,160,0.2); }
+.match-badge.no  { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,69,102,0.2); }
+
+/* ── History ──────────────────────────────────────────────────────── */
+.history-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.history-title { font-family: var(--head); font-size: 1.1rem; font-weight: 600; letter-spacing: 0.5px; }
+
+.history-item {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.25rem;
+  margin-bottom: 8px; transition: border-color 0.2s;
+  animation: slide-up 0.2s ease;
+}
+.history-item:hover { border-color: var(--border2); }
+.history-item-top {
+  display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;
+}
+.history-filename { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+.history-time { font-family: var(--mono); font-size: 0.65rem; color: var(--text3); margin-top: 3px; }
+.history-size { font-family: var(--mono); font-size: 0.68rem; color: var(--text3); white-space: nowrap; }
+.history-hashes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.history-hash-pill {
+  font-family: var(--mono); font-size: 0.68rem;
+  padding: 3px 10px; border-radius: 4px;
+  background: var(--bg4); border: 1px solid var(--border);
+  color: var(--text3);
+}
+.history-hash-pill .pill-algo { color: var(--violet); margin-right: 5px; }
+
+.empty-state {
+  text-align: center; padding: 4rem 2rem;
+  color: var(--text3);
+}
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+.empty-state p { font-size: 0.88rem; }
+
+/* ── Stats strip ──────────────────────────────────────────────────── */
+.stats-strip {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+  margin-bottom: 1.5rem;
+  opacity: 0; transform: translateY(8px);
+  transition: all 0.4s ease;
+}
+.stats-strip.visible { opacity: 1; transform: none; }
+.stat-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.25rem;
+  position: relative; overflow: hidden;
+}
+.stat-box::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan-dim), transparent);
+}
+.stat-key {
+  font-family: var(--mono); font-size: 0.6rem;
+  color: var(--text3); letter-spacing: 1.5px;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.stat-val {
+  font-family: var(--head); font-size: 1.8rem;
+  font-weight: 700; color: var(--cyan); letter-spacing: 1px;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media(max-width:520px){
+  .tab-btn { font-size:0.78rem; padding:9px 6px; }
+  .hero h1 { font-size:2rem; }
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+}
+</style>
 </head>
 <body>
 
-<!-- ── Background ─────────────────────────────────────────────── -->
+<!-- Background -->
 <div class="bg-canvas">
   <div class="bg-grid"></div>
   <div class="bg-orb1"></div>
@@ -17,7 +601,7 @@
   <div class="bg-scan"></div>
 </div>
 
-<!-- ── Navigation ─────────────────────────────────────────────── -->
+<!-- Nav -->
 <nav>
   <div class="nav-logo">
     <div class="logo-icon">🔐</div>
@@ -25,35 +609,32 @@
   </div>
   <div class="nav-right">
     <span class="nav-pill">v2.0</span>
-    <span class="nav-status">
-      <span class="status-dot"></span>ONLINE
-    </span>
+    <span class="nav-status"><span class="status-dot"></span>ONLINE</span>
   </div>
 </nav>
 
-<!-- ── Hero ───────────────────────────────────────────────────── -->
+<!-- Hero -->
 <div class="hero">
   <div class="hero-eyebrow">Cryptographic Hash Engine</div>
   <h1>
     <span class="line1">File Integrity</span>
     <span class="line2">Checker</span>
   </h1>
-  <p class="hero-sub">
-    Generate cryptographic hashes, verify authenticity, and detect
-    file tampering — powered by Python and Flask.
-  </p>
+  <p class="hero-sub">Generate cryptographic hashes, verify authenticity, and detect file tampering — all in your browser, no installation required.</p>
   <div class="algo-strip">
     <span class="algo-strip-badge">MD5</span>
+    <span class="algo-strip-badge">SHA-1</span>
     <span class="algo-strip-badge">SHA-256</span>
+    <span class="algo-strip-badge">SHA-384</span>
     <span class="algo-strip-badge">SHA-512</span>
     <span class="algo-strip-badge">SHA3-256</span>
   </div>
 </div>
 
-<!-- ── Main ───────────────────────────────────────────────────── -->
+<!-- Main -->
 <div class="main">
 
-  <!-- Stats -->
+  <!-- Stats strip -->
   <div class="stats-strip" id="statsStrip">
     <div class="stat-box">
       <div class="stat-key">Files Processed</div>
@@ -69,38 +650,27 @@
     </div>
   </div>
 
-  <!-- Tab Nav -->
+  <!-- Tab nav -->
   <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('gen', this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
+    <button class="tab-btn active" onclick="switchTab('gen',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Generate
     </button>
-    <button class="tab-btn" onclick="switchTab('vfy', this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
+    <button class="tab-btn" onclick="switchTab('vfy',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
       Verify
     </button>
-    <button class="tab-btn" onclick="switchTab('cmp', this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="18" y1="20" x2="18" y2="10"/>
-        <line x1="12" y1="20" x2="12" y2="4"/>
-        <line x1="6"  y1="20" x2="6"  y2="14"/>
-      </svg>
+    <button class="tab-btn" onclick="switchTab('cmp',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Compare
     </button>
-    <button class="tab-btn" onclick="switchTab('hist', this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <polyline points="12 6 12 12 16 14"/>
-      </svg>
+    <button class="tab-btn" onclick="switchTab('hist',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       History
     </button>
   </div>
 
-  <!-- ══ GENERATE ══════════════════════════════════════════════ -->
+  <!-- ══ GENERATE ══ -->
   <div id="tab-gen" class="tab-panel active">
 
     <div class="card">
@@ -109,11 +679,11 @@
         <span class="card-label">Target File</span>
       </div>
       <div class="drop-zone" id="genDrop">
-        <input type="file" id="genInput" onchange="handleFileSelect('gen', this.files[0])"/>
+        <input type="file" id="genInput" onchange="handleDrop('gen', this.files[0])"/>
         <div class="drop-zone-inner">
           <div class="drop-graphic">📂</div>
           <div class="drop-title">Drop file here or click to browse</div>
-          <div class="drop-hint">Any file type · processed server-side via Flask</div>
+          <div class="drop-hint">Any file type · processed entirely in your browser</div>
           <div class="file-badge" id="genBadge"></div>
         </div>
       </div>
@@ -125,10 +695,12 @@
         <span class="card-label">Algorithms</span>
       </div>
       <div class="algo-selector" id="algoSelector">
-        <div class="algo-chip on" data-algo="MD5"      onclick="toggleChip(this)"><span>MD5</span></div>
-        <div class="algo-chip on" data-algo="SHA-256"  onclick="toggleChip(this)"><span>SHA-256</span></div>
-        <div class="algo-chip"   data-algo="SHA-512"  onclick="toggleChip(this)"><span>SHA-512</span></div>
-        <div class="algo-chip"   data-algo="SHA3-256" onclick="toggleChip(this)"><span>SHA3-256</span></div>
+        <div class="algo-chip on" data-algo="MD5"     onclick="toggleChip(this)"><span>MD5</span></div>
+        <div class="algo-chip on" data-algo="SHA-1"   onclick="toggleChip(this)"><span>SHA-1</span></div>
+        <div class="algo-chip on" data-algo="SHA-256" onclick="toggleChip(this)"><span>SHA-256</span></div>
+        <div class="algo-chip"   data-algo="SHA-384" onclick="toggleChip(this)"><span>SHA-384</span></div>
+        <div class="algo-chip"   data-algo="SHA-512" onclick="toggleChip(this)"><span>SHA-512</span></div>
+        <div class="algo-chip"   data-algo="SHA3-256"onclick="toggleChip(this)"><span>SHA3-256</span></div>
       </div>
     </div>
 
@@ -142,9 +714,7 @@
 
     <div class="btn-row">
       <button class="btn btn-cyan" onclick="runGenerate()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         Compute Hashes
       </button>
     </div>
@@ -152,7 +722,7 @@
     <div id="genOut" style="margin-top:1.5rem"></div>
   </div>
 
-  <!-- ══ VERIFY ════════════════════════════════════════════════ -->
+  <!-- ══ VERIFY ══ -->
   <div id="tab-vfy" class="tab-panel">
 
     <div class="card">
@@ -161,7 +731,7 @@
         <span class="card-label">File to Verify</span>
       </div>
       <div class="drop-zone">
-        <input type="file" id="vfyInput" onchange="handleFileSelect('vfy', this.files[0])"/>
+        <input type="file" id="vfyInput" onchange="handleDrop('vfy', this.files[0])"/>
         <div class="drop-zone-inner">
           <div class="drop-graphic">🔍</div>
           <div class="drop-title">Select the file to verify</div>
@@ -178,7 +748,9 @@
       </div>
       <div class="radio-algo-grid">
         <label class="radio-algo"><input type="radio" name="vAlgo" value="MD5"/><span class="radio-algo-label">MD5</span></label>
+        <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA-1"/><span class="radio-algo-label">SHA-1</span></label>
         <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA-256" checked/><span class="radio-algo-label">SHA-256</span></label>
+        <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA-384"/><span class="radio-algo-label">SHA-384</span></label>
         <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA-512"/><span class="radio-algo-label">SHA-512</span></label>
         <label class="radio-algo"><input type="radio" name="vAlgo" value="SHA3-256"/><span class="radio-algo-label">SHA3-256</span></label>
       </div>
@@ -189,9 +761,7 @@
         <div class="card-icon" style="background:rgba(255,184,0,0.1);border-color:rgba(255,184,0,0.2)">📋</div>
         <span class="card-label">Expected Hash</span>
       </div>
-      <input class="text-input" id="expectedInput"
-             placeholder="Paste the known / trusted hash digest here…"
-             autocomplete="off" spellcheck="false"/>
+      <input class="text-input" id="expectedInput" placeholder="Paste the known / trusted hash digest here…" autocomplete="off" spellcheck="false"/>
       <div style="font-size:0.75rem;color:var(--text3);margin-top:6px">
         Get this from the official source (software website, security bulletin, etc.)
       </div>
@@ -201,9 +771,7 @@
 
     <div class="btn-row">
       <button class="btn btn-cyan" onclick="runVerify()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Verify Integrity
       </button>
     </div>
@@ -211,7 +779,7 @@
     <div id="vfyComputedOut" style="margin-top:1rem"></div>
   </div>
 
-  <!-- ══ COMPARE ═══════════════════════════════════════════════ -->
+  <!-- ══ COMPARE ══ -->
   <div id="tab-cmp" class="tab-panel">
 
     <div class="compare-grid">
@@ -221,7 +789,7 @@
           <span class="card-label">File A</span>
         </div>
         <div class="drop-zone" style="padding:1.5rem 1rem">
-          <input type="file" id="cmpA" onchange="handleFileSelect('cmpA', this.files[0])"/>
+          <input type="file" id="cmpA" onchange="handleDrop('cmpA', this.files[0])"/>
           <div class="drop-zone-inner">
             <div class="drop-graphic" style="width:38px;height:38px;font-size:16px;margin-bottom:8px">📄</div>
             <div class="drop-title" style="font-size:0.88rem">Select File A</div>
@@ -235,7 +803,7 @@
           <span class="card-label">File B</span>
         </div>
         <div class="drop-zone" style="padding:1.5rem 1rem">
-          <input type="file" id="cmpB" onchange="handleFileSelect('cmpB', this.files[0])"/>
+          <input type="file" id="cmpB" onchange="handleDrop('cmpB', this.files[0])"/>
           <div class="drop-zone-inner">
             <div class="drop-graphic" style="width:38px;height:38px;font-size:16px;margin-bottom:8px">📄</div>
             <div class="drop-title" style="font-size:0.88rem">Select File B</div>
@@ -247,11 +815,7 @@
 
     <div class="btn-row">
       <button class="btn btn-violet" onclick="runCompare()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="18" y1="20" x2="18" y2="10"/>
-          <line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6"  y1="20" x2="6"  y2="14"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Compare Files
       </button>
     </div>
@@ -259,16 +823,13 @@
     <div id="cmpOut" style="margin-top:1.5rem"></div>
   </div>
 
-  <!-- ══ HISTORY ═══════════════════════════════════════════════ -->
+  <!-- ══ HISTORY ══ -->
   <div id="tab-hist" class="tab-panel">
     <div class="history-controls">
       <div class="history-title">Session History</div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" style="padding:8px 16px;font-size:0.8rem"
-                onclick="exportHistory()">Export JSON</button>
-        <button class="btn btn-ghost"
-                style="padding:8px 16px;font-size:0.8rem;color:var(--red);border-color:rgba(255,69,102,0.3)"
-                onclick="clearHistory()">Clear All</button>
+        <button class="btn btn-ghost" style="padding:8px 16px;font-size:0.8rem" onclick="exportHistory()">Export JSON</button>
+        <button class="btn btn-ghost" style="padding:8px 16px;font-size:0.8rem;color:var(--red);border-color:rgba(255,69,102,0.3)" onclick="clearHistory()">Clear All</button>
       </div>
     </div>
     <div id="histList">
@@ -281,6 +842,402 @@
 
 </div><!-- /main -->
 
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const state = {
+  files: {},         // keyed by id
+  history: [],
+  stats: { files: 0, hashes: 0, lastSize: '—' }
+};
+
+// ── Algo map ───────────────────────────────────────────────────────
+const ALGO_MAP = {
+  'MD5':      null,        // handled by custom impl
+  'SHA-1':    'SHA-1',
+  'SHA-256':  'SHA-256',
+  'SHA-384':  'SHA-384',
+  'SHA-512':  'SHA-512',
+  'SHA3-256': null         // handled by custom impl
+};
+
+// ── Tiny MD5 (RFC 1321) ───────────────────────────────────────────
+function md5(buffer){
+  const bytes=new Uint8Array(buffer);
+  function safeAdd(x,y){const lsw=(x&0xffff)+(y&0xffff);return((x>>16)+(y>>16)+(lsw>>16))<<16|lsw&0xffff;}
+  function bitRotateLeft(num,cnt){return num<<cnt|num>>>32-cnt;}
+  function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
+  function md5ff(a,b,c,d,x,s,t){return md5cmn(b&c|~b&d,a,b,x,s,t);}
+  function md5gg(a,b,c,d,x,s,t){return md5cmn(b&d|c&~d,a,b,x,s,t);}
+  function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
+  function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|~d),a,b,x,s,t);}
+  const len8=bytes.length,len32=Math.ceil((len8+9)/64)*16;
+  const M=new Int32Array(len32);
+  for(let i=0;i<len8;i++)M[i>>2]|=bytes[i]<<(i%4*8);
+  M[len8>>2]|=0x80<<(len8%4*8);
+  M[len32-2]=len8*8;
+  let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+  for(let i=0;i<len32;i+=16){
+    const[oa,ob,oc,od]=[a,b,c,d];
+    a=md5ff(a,b,c,d,M[i],7,-680876936);d=md5ff(d,a,b,c,M[i+1],12,-389564586);c=md5ff(c,d,a,b,M[i+2],17,606105819);b=md5ff(b,c,d,a,M[i+3],22,-1044525330);
+    a=md5ff(a,b,c,d,M[i+4],7,-176418897);d=md5ff(d,a,b,c,M[i+5],12,1200080426);c=md5ff(c,d,a,b,M[i+6],17,-1473231341);b=md5ff(b,c,d,a,M[i+7],22,-45705983);
+    a=md5ff(a,b,c,d,M[i+8],7,1770035416);d=md5ff(d,a,b,c,M[i+9],12,-1958414417);c=md5ff(c,d,a,b,M[i+10],17,-42063);b=md5ff(b,c,d,a,M[i+11],22,-1990404162);
+    a=md5ff(a,b,c,d,M[i+12],7,1804603682);d=md5ff(d,a,b,c,M[i+13],12,-40341101);c=md5ff(c,d,a,b,M[i+14],17,-1502002290);b=md5ff(b,c,d,a,M[i+15],22,1236535329);
+    a=md5gg(a,b,c,d,M[i+1],5,-165796510);d=md5gg(d,a,b,c,M[i+6],9,-1069501632);c=md5gg(c,d,a,b,M[i+11],14,643717713);b=md5gg(b,c,d,a,M[i],20,-373897302);
+    a=md5gg(a,b,c,d,M[i+5],5,-701558691);d=md5gg(d,a,b,c,M[i+10],9,38016083);c=md5gg(c,d,a,b,M[i+15],14,-660478335);b=md5gg(b,c,d,a,M[i+4],20,-405537848);
+    a=md5gg(a,b,c,d,M[i+9],5,568446438);d=md5gg(d,a,b,c,M[i+14],9,-1019803690);c=md5gg(c,d,a,b,M[i+3],14,-187363961);b=md5gg(b,c,d,a,M[i+8],20,1163531501);
+    a=md5gg(a,b,c,d,M[i+13],5,-1444681467);d=md5gg(d,a,b,c,M[i+2],9,-51403784);c=md5gg(c,d,a,b,M[i+7],14,1735328473);b=md5gg(b,c,d,a,M[i+12],20,-1926607734);
+    a=md5hh(a,b,c,d,M[i+5],4,-378558);d=md5hh(d,a,b,c,M[i+8],11,-2022574463);c=md5hh(c,d,a,b,M[i+11],16,1839030562);b=md5hh(b,c,d,a,M[i+14],23,-35309556);
+    a=md5hh(a,b,c,d,M[i+1],4,-1530992060);d=md5hh(d,a,b,c,M[i+4],11,1272893353);c=md5hh(c,d,a,b,M[i+7],16,-155497632);b=md5hh(b,c,d,a,M[i+10],23,-1094730640);
+    a=md5hh(a,b,c,d,M[i+13],4,681279174);d=md5hh(d,a,b,c,M[i],11,-358537222);c=md5hh(c,d,a,b,M[i+3],16,-722521979);b=md5hh(b,c,d,a,M[i+6],23,76029189);
+    a=md5hh(a,b,c,d,M[i+9],4,-640364487);d=md5hh(d,a,b,c,M[i+12],11,-421815835);c=md5hh(c,d,a,b,M[i+15],16,530742520);b=md5hh(b,c,d,a,M[i+2],23,-995338651);
+    a=md5ii(a,b,c,d,M[i],6,-198630844);d=md5ii(d,a,b,c,M[i+7],10,1126891415);c=md5ii(c,d,a,b,M[i+14],15,-1416354905);b=md5ii(b,c,d,a,M[i+5],21,-57434055);
+    a=md5ii(a,b,c,d,M[i+12],6,1700485571);d=md5ii(d,a,b,c,M[i+3],10,-1894986606);c=md5ii(c,d,a,b,M[i+10],15,-1051523);b=md5ii(b,c,d,a,M[i+1],21,-2054922799);
+    a=md5ii(a,b,c,d,M[i+8],6,1873313359);d=md5ii(d,a,b,c,M[i+15],10,-30611744);c=md5ii(c,d,a,b,M[i+6],15,-1560198380);b=md5ii(b,c,d,a,M[i+13],21,1309151649);
+    a=md5ii(a,b,c,d,M[i+4],6,-145523070);d=md5ii(d,a,b,c,M[i+11],10,-1120210379);c=md5ii(c,d,a,b,M[i+2],15,718787259);b=md5ii(b,c,d,a,M[i+9],21,-343485551);
+    a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);
+  }
+  return [a,b,c,d].map(n=>Array.from({length:4},(_,i)=>((n>>(i*8))&0xff).toString(16).padStart(2,'0')).join('')).join('');
+}
+
+// ── Tiny SHA3-256 (Keccak) ─────────────────────────────────────────
+async function sha3_256(buffer){
+  // Use a lightweight pure-JS keccak via simple rotation approach
+  const bytes=new Uint8Array(buffer);
+  // We implement via a simple keccak-256 (used for SHA3-256)
+  const RC=[
+    [0x00000001,0x00000000],[0x00008082,0x00000000],[0x0000808A,0x80000000],[0x80008000,0x80000000],
+    [0x0000808B,0x00000000],[0x80000001,0x00000000],[0x80008081,0x80000000],[0x00008009,0x80000000],
+    [0x0000008A,0x00000000],[0x00000088,0x00000000],[0x80008009,0x00000000],[0x8000000A,0x00000000],
+    [0x8000808B,0x00000000],[0x0000008B,0x80000000],[0x00008089,0x80000000],[0x00008003,0x80000000],
+    [0x00008002,0x80000000],[0x00000080,0x80000000],[0x0000800A,0x00000000],[0x8000000A,0x80000000],
+    [0x80008081,0x80000000],[0x00008080,0x80000000],[0x80000001,0x00000000],[0x80008008,0x80000000]
+  ];
+  // pad message (SHA3 padding: 0x06 ... 0x80)
+  const rate=136; // 1088/8 bytes for SHA3-256
+  const padded=[];
+  for(const b of bytes)padded.push(b);
+  padded.push(0x06);
+  while(padded.length%rate!==0)padded.push(0x00);
+  padded[padded.length-1]|=0x80;
+  // state: 5x5 of [lo,hi] 64-bit
+  const S=Array.from({length:25},()=>[0,0]);
+  function xor64(a,b){return[a[0]^b[0],a[1]^b[1]];}
+  function rotL64([lo,hi],n){
+    n=n%64;
+    if(n===0)return[lo,hi];
+    if(n<32)return[(lo<<n)|(hi>>>(32-n)),(hi<<n)|(lo>>>(32-n))];
+    n-=32;return[(hi<<n)|(lo>>>(32-n)),(lo<<n)|(hi>>>(32-n))];
+  }
+  function keccakF(){
+    for(let r=0;r<24;r++){
+      const C=Array.from({length:5},(_,x)=>xor64(xor64(xor64(xor64(S[x],S[x+5]),S[x+10]),S[x+15]),S[x+20]));
+      const D=Array.from({length:5},(_,x)=>xor64(C[(x+4)%5],rotL64(C[(x+1)%5],1)));
+      for(let x=0;x<5;x++)for(let y=0;y<5;y++)S[x+y*5]=xor64(S[x+y*5],D[x]);
+      const B=Array(25);
+      const pi=[[0,0],[1,6],[2,12],[3,18],[4,24],[5,3],[6,9],[7,10],[8,16],[9,22],[10,1],[11,7],[12,13],[13,19],[14,20],[15,4],[16,5],[17,11],[18,17],[19,23],[20,2],[21,8],[22,14],[23,15],[24,21]];
+      const rho=[0,1,62,28,27,36,44,6,55,20,3,10,43,25,39,41,45,15,21,8,18,2,61,56,14];
+      for(let i=0;i<25;i++)B[pi[i][1]]=rotL64(S[i],rho[i]);
+      for(let x=0;x<5;x++)for(let y=0;y<5;y++){
+        const i=x+y*5;S[i]=[B[i][0]^(~B[(x+1)%5+y*5][0]&B[(x+2)%5+y*5][0]),B[i][1]^(~B[(x+1)%5+y*5][1]&B[(x+2)%5+y*5][1])];
+      }
+      S[0]=[S[0][0]^RC[r][0],S[0][1]^RC[r][1]];
+    }
+  }
+  for(let i=0;i<padded.length;i+=rate){
+    for(let j=0;j<rate/8;j++){
+      const lo=padded[i+j*8]|(padded[i+j*8+1]<<8)|(padded[i+j*8+2]<<16)|(padded[i+j*8+3]<<24);
+      const hi=padded[i+j*8+4]|(padded[i+j*8+5]<<8)|(padded[i+j*8+6]<<16)|(padded[i+j*8+7]<<24);
+      S[j]=[S[j][0]^lo,S[j][1]^hi];
+    }
+    keccakF();
+  }
+  let hex='';
+  for(let i=0;i<4;i++){
+    const[lo,hi]=S[i];
+    hex+=[lo&0xff,(lo>>8)&0xff,(lo>>16)&0xff,(lo>>24)&0xff,hi&0xff,(hi>>8)&0xff,(hi>>16)&0xff,(hi>>24)&0xff].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  return hex;
+}
+
+// ── Core hash dispatcher ───────────────────────────────────────────
+async function computeHash(buffer, algo) {
+  if (algo === 'MD5')     return md5(buffer);
+  if (algo === 'SHA3-256') return await sha3_256(buffer);
+  const name = ALGO_MAP[algo];
+  const hashBuf = await crypto.subtle.digest(name, buffer);
+  return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── File helpers ───────────────────────────────────────────────────
+function fmtSize(n) {
+  const u=['B','KB','MB','GB']; let i=0;
+  while(n>=1024&&i<u.length-1){n/=1024;i++;}
+  return (i===0?n:n.toFixed(1))+' '+u[i];
+}
+function fmtDate(){
+  return new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ── Drop / file select ─────────────────────────────────────────────
+function handleDrop(id, file) {
+  if (!file) return;
+  state.files[id] = file;
+  const badge = document.getElementById(id+'Badge') || document.getElementById(id.replace('cmp','cmp')+'Badge');
+  const b = document.getElementById(
+    id==='gen'?'genBadge':id==='vfy'?'vfyBadge':id==='cmpA'?'cmpABadge':'cmpBBadge'
+  );
+  if(b){ b.style.display='block'; b.textContent='✔  '+file.name+'  ('+fmtSize(file.size)+')'; }
+  const dz = document.querySelector(`#${id==='gen'?'tab-gen':id==='vfy'?'tab-vfy':'tab-cmp'} .drop-zone${id==='cmpA'?':first-of-type':id==='cmpB'?':last-of-type':''}`);
+}
+
+// drag-over highlight
+document.querySelectorAll('.drop-zone').forEach(dz=>{
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault(); dz.classList.remove('over');
+    const inp=dz.querySelector('input[type=file]');
+    if(inp&&e.dataTransfer.files[0]){
+      const dt=new DataTransfer(); dt.items.add(e.dataTransfer.files[0]);
+      inp.files=dt.files; inp.dispatchEvent(new Event('change'));
+    }
+  });
+});
+
+// ── Tabs ───────────────────────────────────────────────────────────
+function switchTab(id, btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Algo chips ─────────────────────────────────────────────────────
+function toggleChip(el){
+  const on=document.querySelectorAll('.algo-chip.on');
+  if(el.classList.contains('on')&&on.length===1)return;
+  el.classList.toggle('on');
+}
+
+// ── Generate ───────────────────────────────────────────────────────
+async function runGenerate(){
+  const file=state.files['gen'];
+  if(!file){alert('Please select a file first.');return;}
+  const algos=[...document.querySelectorAll('.algo-chip.on')].map(c=>c.dataset.algo);
+
+  const prog=document.getElementById('genProg');
+  const fill=document.getElementById('genFill');
+  const label=document.getElementById('genProgLabel');
+  const pct=document.getElementById('genProgPct');
+  prog.style.display='block';
+
+  const buf=await file.arrayBuffer();
+  const results={};
+
+  for(let i=0;i<algos.length;i++){
+    const a=algos[i];
+    label.textContent='Computing '+a+'…';
+    const p=Math.round(((i)/algos.length)*100);
+    fill.style.width=p+'%'; pct.textContent=p+'%';
+    results[a]=await computeHash(buf,a);
+  }
+  fill.style.width='100%'; pct.textContent='100%';
+  label.textContent='Done!';
+  setTimeout(()=>{prog.style.display='none';fill.style.width='0%';},700);
+
+  state.stats.files++;
+  state.stats.hashes+=algos.length;
+  state.stats.lastSize=fmtSize(file.size);
+  updateStats();
+
+  const ts=fmtDate();
+  state.history.unshift({ts,name:file.name,size:fmtSize(file.size),hashes:results});
+  refreshHistory();
+  renderGenOut(file,results,ts);
+}
+
+function renderGenOut(file,hashes,ts){
+  const out=document.getElementById('genOut');
+  const entries=Object.entries(hashes).map(([algo,hash])=>`
+    <div class="hash-entry">
+      <div class="hash-entry-top">
+        <span class="hash-algo-tag">${algo}</span>
+        <span class="hash-len">${hash.length} chars</span>
+      </div>
+      <div class="hash-value">${hash}</div>
+      <div class="hash-actions">
+        <button class="mini-btn" onclick="copyVal('${hash}',this)">Copy</button>
+      </div>
+    </div>`).join('');
+
+  out.innerHTML=`
+    <div class="file-meta-bar">
+      <div class="meta-item"><span class="meta-key">File</span><span class="meta-val">${esc(file.name)}</span></div>
+      <div class="meta-item"><span class="meta-key">Size</span><span class="meta-val">${fmtSize(file.size)}</span></div>
+      <div class="meta-item"><span class="meta-key">Type</span><span class="meta-val">${file.type||'unknown'}</span></div>
+      <div class="meta-item"><span class="meta-key">Generated</span><span class="meta-val">${ts}</span></div>
+    </div>
+    <div class="hash-list">${entries}</div>
+    <div class="btn-row" style="margin-top:1rem">
+      <button class="btn btn-ghost" onclick="copyAllHashes(${JSON.stringify(hashes).replace(/"/g,'&quot;')})">Copy All Hashes</button>
+      <button class="btn btn-ghost" onclick="saveReport('${esc(file.name)}','${fmtSize(file.size)}','${ts}',${JSON.stringify(hashes).replace(/"/g,'&quot;')})">Save Report</button>
+    </div>`;
+}
+
+// ── Verify ─────────────────────────────────────────────────────────
+async function runVerify(){
+  const file=state.files['vfy'];
+  if(!file){alert('Please select a file.');return;}
+  const expected=document.getElementById('expectedInput').value.trim().toLowerCase();
+  if(!expected){alert('Please paste the expected hash.');return;}
+  const algo=document.querySelector('input[name="vAlgo"]:checked').value;
+
+  const buf=await file.arrayBuffer();
+  const computed=await computeHash(buf,algo);
+  const matched=computed===expected;
+
+  const banner=document.getElementById('vfyBanner');
+  banner.innerHTML=matched
+    ?`<div class="verify-banner success">
+        <div class="banner-icon-wrap">✔</div>
+        <div class="banner-text"><h3>INTEGRITY VERIFIED</h3><p>The computed hash matches your expected value. This file is authentic and untampered.</p></div>
+      </div>`
+    :`<div class="verify-banner fail">
+        <div class="banner-icon-wrap">✘</div>
+        <div class="banner-text"><h3>INTEGRITY FAILED</h3><p>Hash mismatch detected. This file may be corrupted, modified, or from an untrustworthy source.</p></div>
+      </div>`;
+
+  document.getElementById('vfyComputedOut').innerHTML=`
+    <div class="card">
+      <div class="card-label" style="margin-bottom:8px">Computed Hash (${algo})</div>
+      <div class="hash-value">${computed}</div>
+      <div class="hash-actions" style="margin-top:10px">
+        <button class="mini-btn" onclick="copyVal('${computed}',this)">Copy</button>
+      </div>
+    </div>`;
+}
+
+// ── Compare ────────────────────────────────────────────────────────
+async function runCompare(){
+  const fa=state.files['cmpA'], fb=state.files['cmpB'];
+  if(!fa||!fb){alert('Please select both files.');return;}
+
+  const [bufA,bufB]=[await fa.arrayBuffer(), await fb.arrayBuffer()];
+  const algos=['MD5','SHA-1','SHA-256','SHA-512'];
+  let allMatch=true;
+  const rows=[];
+
+  for(const algo of algos){
+    const ha=await computeHash(bufA,algo);
+    const hb=await computeHash(bufB,algo);
+    const match=ha===hb;
+    if(!match)allMatch=false;
+    rows.push({algo,ha,hb,match});
+  }
+
+  const banner=allMatch
+    ?`<div class="verify-banner success"><div class="banner-icon-wrap">✔</div><div class="banner-text"><h3>FILES ARE IDENTICAL</h3><p>All hashes match across every algorithm. These files are byte-for-byte identical.</p></div></div>`
+    :`<div class="verify-banner fail"><div class="banner-icon-wrap">✘</div><div class="banner-text"><h3>FILES ARE DIFFERENT</h3><p>One or more hash mismatches detected. The files have different content.</p></div></div>`;
+
+  const trows=rows.map(r=>`<tr>
+    <td><span class="hash-algo-tag">${r.algo}</span></td>
+    <td style="font-family:var(--mono);font-size:0.68rem;color:var(--text2);word-break:break-all">${r.ha.substring(0,32)}…</td>
+    <td style="font-family:var(--mono);font-size:0.68rem;color:var(--text2);word-break:break-all">${r.hb.substring(0,32)}…</td>
+    <td><span class="match-badge ${r.match?'yes':'no'}">${r.match?'✔ Match':'✘ Differ'}</span></td>
+  </tr>`).join('');
+
+  document.getElementById('cmpOut').innerHTML=banner+`
+    <div class="card" style="margin-top:12px;overflow:auto">
+      <div style="display:flex;gap:1rem;margin-bottom:12px;flex-wrap:wrap">
+        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--text3)">A: <span style="color:var(--text)">${esc(fa.name)}</span> (${fmtSize(fa.size)})</span>
+        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--text3)">B: <span style="color:var(--text)">${esc(fb.name)}</span> (${fmtSize(fb.size)})</span>
+      </div>
+      <table class="compare-table">
+        <thead><tr><th>Algorithm</th><th>Hash — File A</th><th>Hash — File B</th><th>Result</th></tr></thead>
+        <tbody>${trows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Stats ──────────────────────────────────────────────────────────
+function updateStats(){
+  const s=state.stats;
+  document.getElementById('sFiles').textContent=s.files;
+  document.getElementById('sHashes').textContent=s.hashes;
+  document.getElementById('sSize').textContent=s.lastSize;
+  const strip=document.getElementById('statsStrip');
+  strip.classList.add('visible');
+}
+
+// ── History ────────────────────────────────────────────────────────
+function refreshHistory(){
+  const el=document.getElementById('histList');
+  if(!state.history.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>No files processed yet.</p></div>';
+    return;
+  }
+  el.innerHTML=state.history.map(e=>{
+    const pills=Object.entries(e.hashes).map(([a,h])=>
+      `<span class="history-hash-pill"><span class="pill-algo">${a}</span>${h.substring(0,16)}…</span>`
+    ).join('');
+    return `<div class="history-item">
+      <div class="history-item-top">
+        <div><div class="history-filename">${esc(e.name)}</div><div class="history-time">${e.ts}</div></div>
+        <div class="history-size">${e.size}</div>
+      </div>
+      <div class="history-hashes">${pills}</div>
+    </div>`;
+  }).join('');
+}
+
+function clearHistory(){
+  if(!state.history.length)return;
+  if(confirm('Clear all history?')){state.history=[];refreshHistory();}
+}
+
+function exportHistory(){
+  if(!state.history.length){alert('No history to export yet.');return;}
+  const blob=new Blob([JSON.stringify(state.history,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='integrity_history_'+Date.now()+'.json';
+  a.click();
+}
+
+// ── Utils ──────────────────────────────────────────────────────────
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function copyVal(val,btn){
+  navigator.clipboard.writeText(val).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='Copied!'; btn.classList.add('ok');
+    setTimeout(()=>{btn.textContent=orig;btn.classList.remove('ok');},1400);
+  });
+}
+
+function copyAllHashes(hashes){
+  const txt=Object.entries(hashes).map(([a,h])=>`${a}: ${h}`).join('\n');
+  navigator.clipboard.writeText(txt).then(()=>alert('All hashes copied to clipboard!'));
+}
+
+function saveReport(name,size,ts,hashes){
+  const lines=[
+    '============================================================',
+    '  FILE INTEGRITY REPORT',
+    '============================================================',
+    `  File      : ${name}`,
+    `  Size      : ${size}`,
+    `  Generated : ${ts}`,
+    '============================================================',
+    '',
+    ...Object.entries(hashes).map(([a,h])=>`  ${a.padEnd(10)}: ${h}`),
+    '',
+    '============================================================',
+  ].join('\n');
+  const blob=new Blob([lines],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`integrity_report_${name}.txt`; a.click();
+}
+</script>
 </body>
 </html>
